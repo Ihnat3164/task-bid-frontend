@@ -5,6 +5,7 @@ import RoleSelectPage from './pages/RoleSelectPage';
 import OnboardingPage from './pages/OnboardingPage';
 import HomePage from './pages/HomePage';
 import CreateTaskPage from './pages/CreateTaskPage';
+import {TaskDetailPage} from './pages/TaskDetailPage.jsx';
 
 
 function RequireAuth({ children }) {
@@ -22,6 +23,7 @@ export default function App() {
             <Route path="/onboarding" element={<RequireAuth><OnboardingPage /></RequireAuth>} />
             <Route path="/home" element={<RequireAuth><HomePage /></RequireAuth>} />
             <Route path="/task/new" element={<RequireAuth><CreateTaskPage /></RequireAuth>} />
+            <Route path="/tasks/:id" element={<RequireAuth><TaskDetailPage /></RequireAuth>} />
         </Routes>
     );
 }
