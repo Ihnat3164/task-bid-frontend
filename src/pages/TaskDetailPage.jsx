@@ -1,44 +1,90 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { getTask } from '../api';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import {
+    getTask,
+    deleteTask,
+    applyToTask,
+    getRoleFromToken
+} from '../api';
 
 export function TaskDetailPage() {
-    const {id} = useParams();
+    const { id } = useParams();
     const nav = useNavigate();
+    const location = useLocation();
+
+    const canDelete = location.state?.canDelete === true;
+    const role = getRoleFromToken();
+
     const [task, setTask] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    const [applied, setApplied] = useState(false);
+    const [applyLoading, setApplyLoading] = useState(false);
 
     useEffect(() => {
         let cancelled = false;
 
         async function load() {
-            if (cancelled) return;
-
             setLoading(true);
             setError(null);
 
             try {
-                const task = await getTask(id);
-                if (!cancelled) setTask(task);
+                const t = await getTask(id);
+                if (!cancelled) setTask(t);
             } catch (err) {
-                if (!cancelled) setError(err.message || "Ошибка загрузки");
+                if (!cancelled) setError(err.message || 'Ошибка загрузки');
             } finally {
                 if (!cancelled) setLoading(false);
             }
         }
 
         load();
-
-        return () => {
-            cancelled = true;
-        };
+        return () => (cancelled = true);
     }, [id]);
-
 
     function goBack() {
         nav(-1);
     }
+
+    async function handleDelete() {
+        if (!window.confirm('Удалить задачу?')) return;
+
+        try {
+            await deleteTask(id);
+            nav('/home');
+        } catch (err) {
+            alert(err.message || 'Не удалось удалить задачу');
+        }
+    }
+
+    async function handleApply() {
+        try {
+            setApplyLoading(true);
+            await applyToTask(id);
+            setApplied(true);
+        } catch (err) {
+            if (err?.code === 'ALREADY_APPLIED') {
+                setApplied(true);
+                return;
+            }
+            alert(err.message || 'Не удалось откликнуться');
+        } finally {
+            setApplyLoading(false);
+        }
+    }
+
+    const status = task
+        ? typeof task.status === 'string'
+            ? task.status
+            : task.status?.name
+        : null;
+
+    const canApply =
+        !canDelete &&
+        role === 'EXECUTOR' &&
+        status === 'OPEN' &&
+        !applied;
 
     return (
         <div style={{
@@ -57,12 +103,12 @@ export function TaskDetailPage() {
                 boxShadow: '0 6px 20px rgba(0,0,0,0.05)'
             }}>
                 {loading && <p>Загрузка...</p>}
-                {error && <p style={{color: 'red'}}>{error}</p>}
+                {error && <p style={{ color: 'red' }}>{error}</p>}
 
                 {task && (
                     <>
-                        <h2 style={{marginBottom: '10px'}}>{task.title}</h2>
-                        <p style={{color: '#555', marginBottom: '20px'}}>{task.description}</p>
+                        <h2>{task.title}</h2>
+                        <p style={{ color: '#555' }}>{task.description}</p>
 
                         <div style={{
                             display: 'grid',
@@ -71,44 +117,85 @@ export function TaskDetailPage() {
                             marginBottom: '20px'
                         }}>
                             <div>
-                                <h4 style={{margin: '0 0 6px'}}>Город</h4>
-                                <p style={{margin: 0}}>{task.city || 'Не указан'}</p>
+                                <b>Город</b>
+                                <p>{task.city || '—'}</p>
                             </div>
                             <div>
-                                <h4 style={{margin: '0 0 6px'}}>Статус</h4>
-                                <p style={{margin: 0}}>{task.status}</p>
+                                <b>Статус</b>
+                                <p>{status}</p>
                             </div>
                             <div>
-                                <h4 style={{margin: '0 0 6px'}}>Навыки</h4>
-                                <p style={{margin: 0}}>
-                                    {task.requiredSkills && task.requiredSkills.length > 0
-                                        ? task.requiredSkills.map(skill => skill.name || skill.title || skill).join(', ')
-                                        : 'Не указаны'}
+                                <b>Навыки</b>
+                                <p>
+                                    {task.requiredSkills?.length
+                                        ? task.requiredSkills.map(s => s.name).join(', ')
+                                        : '—'}
                                 </p>
                             </div>
                             <div>
-                                <h4 style={{margin: '0 0 6px'}}>Создана</h4>
-                                <p style={{margin: 0}}>
+                                <b>Создана</b>
+                                <p>
                                     {task.createdAt
                                         ? new Date(task.createdAt).toLocaleString()
-                                        : 'Дата неизвестна'}
+                                        : '—'}
                                 </p>
                             </div>
                         </div>
 
-                        <button
-                            onClick={goBack}
-                            style={{
-                                padding: '12px 18px',
-                                borderRadius: '8px',
-                                border: '1px solid #2962ff',
-                                background: 'white',
-                                color: '#2962ff',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            Назад
-                        </button>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                            <button
+                                onClick={goBack}
+                                style={{
+                                    padding: '12px 18px',
+                                    borderRadius: '8px',
+                                    border: '1px solid #2962ff',
+                                    background: 'white',
+                                    color: '#2962ff',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Назад
+                            </button>
+
+                            {canDelete && status === 'OPEN' && (
+                                <button
+                                    onClick={handleDelete}
+                                    style={{
+                                        padding: '12px 18px',
+                                        borderRadius: '8px',
+                                        border: '1px solid #d33',
+                                        background: 'white',
+                                        color: '#d33',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    Удалить
+                                </button>
+                            )}
+
+                            {canApply && (
+                                <button
+                                    onClick={handleApply}
+                                    disabled={applyLoading}
+                                    style={{
+                                        padding: '12px 18px',
+                                        borderRadius: '8px',
+                                        border: '1px solid #2962ff',
+                                        background: 'white',
+                                        color: '#2962ff',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {applyLoading ? 'Отправляем...' : 'Откликнуться'}
+                                </button>
+                            )}
+
+                            {!canDelete && role === 'EXECUTOR' && status === 'OPEN' && applied && (
+                                <span style={{ color: '#2e7d32' }}>
+                                    Вы откликнулись на эту задачу
+                                </span>
+                            )}
+                        </div>
                     </>
                 )}
             </div>

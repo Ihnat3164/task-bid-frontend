@@ -13,14 +13,11 @@ export default function AuthPage() {
         e.preventDefault();
 
         if (isLogin) {
-            // ---------- ВХОД ----------
             const res = await login({ email, password });
             localStorage.setItem('taskbid_token', res.token);
             nav('/home');
         } else {
-            // ---------- РЕГИСТРАЦИЯ ----------
-            await register({ username, email, password });
-            const res = await login({ email, password });
+            const res = await register({ username, email, password });
             localStorage.setItem('taskbid_token', res.token);
             nav('/choose-role');
         }

@@ -122,6 +122,66 @@ export async function getRecommendations() {
     return res.json();
 }
 
+export async function deleteTask(id) {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${id}`, {
+        method: 'DELETE',
+        headers: authHeaders()
+    });
+
+    if (!res.ok) throw new Error('Failed to delete task');
+    return res;
+}
+
+
+export async function getAllTasks() {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/all`, {
+        headers: authHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch all tasks');
+    return res.json();
+}
+
+export async function applyToTask(id) {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${id}/apply`, {
+        method: 'POST',
+        headers: authHeaders()
+    });
+
+    // 200-299
+    if (res.ok) return res;
+
+    // если ты на бэке сделаешь 409 при повторном отклике — будет идеально
+    if (res.status === 409) {
+        const err = new Error('ALREADY_APPLIED');
+        err.code = 'ALREADY_APPLIED';
+        throw err;
+    }
+
+    if (res.status === 401) {
+        const err = new Error('UNAUTHORIZED');
+        err.code = 'UNAUTHORIZED';
+        throw err;
+    }
+
+    throw new Error('Failed to apply');
+}
+
+export async function getMyTasksApplicationsCount() {
+    const res = await fetch(`${API_BASE_URL}/api/my/tasks/applications-count`, {
+        headers: authHeaders()
+    });
+
+    if (res.status === 401) throw new Error('Unauthorized');
+    if (!res.ok) throw new Error('Failed to fetch applications count');
+
+    return res.json();
+}
+
+
+
+
+
+
 
 
 
