@@ -7,14 +7,12 @@ export default function OnboardingPage() {
     const [selected, setSelected] = useState(new Set());
 
     const [city, setCity] = useState('');
-    const [experience, setExperience] = useState(0);
     const [description, setDescription] = useState('');
-    const [workRadiusKm, setWorkRadiusKm] = useState(10);
 
     const nav = useNavigate();
 
     useEffect(() => {
-        getSkillCategories().then(setSkills);
+        getSkillCategories().then(setSkills).catch(console.error);
     }, []);
 
     function toggle(id) {
@@ -25,15 +23,15 @@ export default function OnboardingPage() {
 
     async function submit(e) {
         e.preventDefault();
+
         await submitOnboarding({
             role: 'EXECUTOR',
             city,
-            experience,
             description,
-            workRadiusKm,
             skillIds: [...selected]
         });
-        nav('/home');
+
+        nav('/auth');
     }
 
     return (
@@ -42,29 +40,33 @@ export default function OnboardingPage() {
                 <h2>Профиль исполнителя</h2>
 
                 <form onSubmit={submit}>
-                    <input className="input" placeholder="Город"
-                           value={city} onChange={e => setCity(e.target.value)} required />
+                    <input
+                        className="input"
+                        placeholder="Город"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        required
+                    />
 
-                    <input className="input" type="number"
-                           placeholder="Опыт (лет)"
-                           value={experience} onChange={e => setExperience(e.target.value)} />
-
-                    <input className="input" type="number"
-                           placeholder="Радиус (км)"
-                           value={workRadiusKm} onChange={e => setWorkRadiusKm(e.target.value)} />
-
-                    <textarea className="input" placeholder="Описание"
-                              value={description} onChange={e => setDescription(e.target.value)} />
+                    <textarea
+                        className="input"
+                        placeholder="Описание"
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                    />
 
                     <div>
                         <h3>Навыки</h3>
-                        {skills.map(cat => (
+                        {skills.map((cat) => (
                             <div key={cat.id}>
                                 <strong>{cat.name}</strong>
-                                {cat.skills.map(s => (
+                                {cat.skills.map((s) => (
                                     <label key={s.id} style={{ display: 'block' }}>
-                                        <input type="checkbox" checked={selected.has(s.id)}
-                                               onChange={() => toggle(s.id)} />
+                                        <input
+                                            type="checkbox"
+                                            checked={selected.has(s.id)}
+                                            onChange={() => toggle(s.id)}
+                                        />
                                         {s.name}
                                     </label>
                                 ))}
@@ -72,7 +74,9 @@ export default function OnboardingPage() {
                         ))}
                     </div>
 
-                    <button className="btn" type="submit">Сохранить</button>
+                    <button className="btn" type="submit">
+                        Сохранить
+                    </button>
                 </form>
             </div>
         </div>

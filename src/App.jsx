@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage';
 import CreateTaskPage from './pages/CreateTaskPage';
 import {TaskDetailPage} from './pages/TaskDetailPage.jsx';
 import TasksListPage from './pages/TaskListPage.jsx';
+import MyApplicationsPage from './pages/MyApplicationsPage';
 
 
 function RequireAuth({ children }) {
@@ -25,9 +26,8 @@ export default function App() {
             <Route path="/home" element={<RequireAuth><HomePage /></RequireAuth>} />
             <Route path="/task/new" element={<RequireAuth><CreateTaskPage /></RequireAuth>} />
             <Route path="/tasks/:id" element={<RequireAuth><TaskDetailPage /></RequireAuth>} />
-            <Route path="/tasks" element={<RequireAuth><TasksListPage /></RequireAuth>}
-            />
-
+            <Route path="/my-applications" element={<RequireAuth><MyApplicationsPage /></RequireAuth>} />
+            <Route path="/tasks" element={<RequireAuth><TasksListPage /></RequireAuth>} />
         </Routes>
     );
 }

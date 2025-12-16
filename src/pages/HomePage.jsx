@@ -6,6 +6,7 @@ import {
     getRoleFromToken,
     getMyTasksApplicationsCount
 } from '../api';
+import { toDateOnly } from '../utils/date';
 
 export default function HomePage() {
     const nav = useNavigate();
@@ -28,12 +29,8 @@ export default function HomePage() {
     }
 
     useEffect(() => {
-        // мои задачи
-        getMyTasks()
-            .then(setTasks)
-            .catch(console.error);
+        getMyTasks().then(setTasks).catch(console.error);
 
-        // counts откликов по моим задачам
         getMyTasksApplicationsCount()
             .then((list) => {
                 const map = {};
@@ -44,17 +41,97 @@ export default function HomePage() {
             })
             .catch(console.error);
 
-        // рекомендации (только для EXECUTOR)
         if (role === 'EXECUTOR') {
-            getRecommendations()
-                .then(setRecs)
-                .catch(console.error);
+            getRecommendations().then(setRecs).catch(console.error);
         }
     }, [role]);
 
+    // ✅ стили правой части (боковую не трогаем)
+    const contentWrapStyle = {
+        flex: 1,
+        padding: '40px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center'
+    };
+
+    // контейнер с контентом (шире, меньше пустоты)
+    const contentStyle = {
+        width: 'min(920px, 100%)'
+    };
+
+    // заголовок вровень с блоком задач
+    const sectionTitleStyle = {
+        margin: '0 0 14px',
+        paddingLeft: '0px'
+    };
+
+    // список/карточка
+    const listCardStyle = {
+        width: '100%',
+        background: 'white',
+        borderRadius: '12px',
+        overflow: 'hidden',
+        border: '1px solid #e6e8eb'
+    };
+
+    // элемент задачи (компактнее + меньше пустого места)
+    const rowStyle = {
+        padding: '12px 16px',
+        borderBottom: '1px solid #f0f1f3',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '14px'
+    };
+
+    const titleStyle = {
+        fontWeight: 800,
+        fontSize: '16px',
+        lineHeight: 1.15,
+        marginBottom: '6px'
+    };
+
+    const metaStyle = {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px',
+        color: '#555',
+        fontSize: '13px',
+        lineHeight: 1.2
+    };
+
+    const labelStyle = { color: '#8a8f98' };
+
+    const badgeStyle = {
+        minWidth: '28px',
+        height: '28px',
+        borderRadius: '999px',
+        background: '#2962ff',
+        color: 'white',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 'bold',
+        fontSize: '13px',
+        padding: '0 8px',
+        flexShrink: 0
+    };
+
+    const subBtnStyle = {
+        marginTop: '14px',
+        padding: '10px 12px',
+        borderRadius: '10px',
+        border: '1px solid #ddd',
+        background: 'white',
+        cursor: 'pointer',
+        alignSelf: 'flex-start'
+    };
+
     return (
         <div style={{ display: 'flex', height: '100vh', background: '#f5f6f8' }}>
-            {/* Левая панель */}
+            {/* Левая панель (НЕ ТРОГАЕМ) */}
             <div
                 style={{
                     width: '240px',
@@ -81,10 +158,10 @@ export default function HomePage() {
                     + Создать задачу
                 </button>
 
-                {/* Кнопка "Все задачи" — только для EXECUTOR */}
-                {role === 'EXECUTOR' && (
+                {/* CUSTOMER → стать исполнителем */}
+                {role === 'CUSTOMER' && (
                     <button
-                        onClick={() => nav('/tasks?type=all')}
+                        onClick={() => nav('/onboarding')}
                         style={{
                             padding: '12px',
                             borderRadius: '8px',
@@ -94,169 +171,152 @@ export default function HomePage() {
                             cursor: 'pointer'
                         }}
                     >
-                        Все задачи
+                        Стать исполнителем
                     </button>
                 )}
 
-                <button
-                    onClick={logout}
-                    style={{
-                        padding: '12px',
-                        borderRadius: '8px',
-                        background: 'white',
-                        border: '1px solid #2962ff',
-                        color: '#2962ff',
-                        cursor: 'pointer'
-                    }}
-                >
-                    Выйти
-                </button>
-            </div>
-
-            {/* Правая часть */}
-            <div
-                style={{
-                    flex: 1,
-                    padding: '40px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center'
-                }}
-            >
-                {/* Рекомендованные задачи */}
+                {/* EXECUTOR кнопки */}
                 {role === 'EXECUTOR' && (
                     <>
-                        <h2 style={{ marginBottom: '20px', alignSelf: 'flex-start' }}>
-                            Рекомендованные задачи
-                        </h2>
-
-                        <div
-                            style={{
-                                width: '600px',
-                                background: 'white',
-                                borderRadius: '10px',
-                                overflow: 'hidden',
-                                border: '1px solid #ddd',
-                                marginBottom: '30px'
-                            }}
-                        >
-                            {recs.length === 0 ? (
-                                <p style={{ padding: '20px', color: '#777' }}>Нет рекомендаций</p>
-                            ) : (
-                                recs.slice(0, 3).map((task) => (
-                                    <div
-                                        key={task.id}
-                                        onClick={() => openOtherTask(task.id)}
-                                        style={{
-                                            padding: '16px 18px',
-                                            borderBottom: '1px solid #eee',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        <strong>{task.title}</strong>
-                                        <br />
-                                        <span style={{ color: '#555' }}>
-                      {task.status} • {task.beginDate}
-                    </span>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-
                         <button
-                            onClick={() => nav('/tasks?type=recommended')}
+                            onClick={() => nav('/tasks?type=all')}
                             style={{
-                                marginBottom: '40px',
-                                padding: '8px 12px',
+                                padding: '12px',
                                 borderRadius: '8px',
-                                border: '1px solid #ddd',
                                 background: 'white',
+                                border: '1px solid #2962ff',
+                                color: '#2962ff',
                                 cursor: 'pointer'
                             }}
                         >
-                            Посмотреть все
+                            Все задачи
+                        </button>
+
+                        <button
+                            onClick={() => nav('/my-applications')}
+                            style={{
+                                padding: '12px',
+                                borderRadius: '8px',
+                                background: 'white',
+                                border: '1px solid #2962ff',
+                                color: '#2962ff',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Мои отклики
                         </button>
                     </>
                 )}
 
-                {/* Мои задачи */}
-                <h2 style={{ marginBottom: '20px', alignSelf: 'flex-start' }}>Мои задачи</h2>
+                {/* Кнопка выхода — внизу */}
+                <div style={{ marginTop: 'auto' }}>
+                    <button
+                        onClick={logout}
+                        style={{
+                            width: '100%',
+                            padding: '12px',
+                            borderRadius: '8px',
+                            background: '#ffebee',
+                            border: '1px solid #e53935',
+                            color: '#e53935',
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
+                        }}
+                    >
+                        Выйти
+                    </button>
+                </div>
+            </div>
 
-                <div
-                    style={{
-                        width: '600px',
-                        background: 'white',
-                        borderRadius: '10px',
-                        overflow: 'hidden',
-                        border: '1px solid #ddd'
-                    }}
-                >
-                    {tasks.length === 0 ? (
-                        <p style={{ padding: '20px', color: '#777' }}>Нет текущих задач</p>
-                    ) : (
-                        tasks.slice(0, 3).map((task) => {
-                            const count = Number(appsCount[task.id] || 0);
+            {/* Правая часть (обновили дизайн) */}
+            <div style={contentWrapStyle}>
+                <div style={contentStyle}>
+                    {/* Рекомендованные задачи */}
+                    {role === 'EXECUTOR' && (
+                        <>
+                            <h2 style={sectionTitleStyle}>Рекомендованные задачи</h2>
 
-                            return (
-                                <div
-                                    key={task.id}
-                                    onClick={() => openMyTask(task.id)}
-                                    style={{
-                                        padding: '16px 18px',
-                                        borderBottom: '1px solid #eee',
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        gap: '12px'
-                                    }}
-                                >
-                                    <div>
-                                        <strong>{task.title}</strong>
-                                        <br />
-                                        <span style={{ color: '#555' }}>
-                      {task.status} • {task.beginDate}
-                    </span>
-                                    </div>
-
-                                    {count > 0 && (
+                            <div style={{ ...listCardStyle, marginBottom: '18px' }}>
+                                {recs.length === 0 ? (
+                                    <p style={{ padding: '16px', color: '#777', margin: 0 }}>Нет рекомендаций</p>
+                                ) : (
+                                    recs.slice(0, 3).map((task, idx) => (
                                         <div
+                                            key={task.id}
+                                            onClick={() => openOtherTask(task.id)}
                                             style={{
-                                                minWidth: '28px',
-                                                height: '28px',
-                                                borderRadius: '999px',
-                                                background: '#2962ff',
-                                                color: 'white',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                fontWeight: 'bold',
-                                                fontSize: '13px',
-                                                padding: '0 8px'
+                                                ...rowStyle,
+                                                borderBottom: idx === Math.min(2, recs.length - 1) ? 'none' : rowStyle.borderBottom
                                             }}
                                         >
-                                            {count}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
+                                            <div style={{ minWidth: 0 }}>
+                                                <div style={titleStyle}>{task.title}</div>
 
-                <button
-                    onClick={() => nav('/tasks?type=my')}
-                    style={{
-                        marginTop: '20px',
-                        padding: '8px 12px',
-                        borderRadius: '8px',
-                        border: '1px solid #ddd',
-                        background: 'white',
-                        cursor: 'pointer'
-                    }}
-                >
-                    Посмотреть все
-                </button>
+                                                <div style={metaStyle}>
+                                                    <div>
+                                                        <span style={labelStyle}>Дата:</span>{' '}
+                                                        {toDateOnly(task.beginDate ?? task.createdAt)}
+                                                    </div>
+                                                    <div>
+                                                        <span style={labelStyle}>Статус:</span> {task.status}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            <button onClick={() => nav('/tasks?type=recommended')} style={{ ...subBtnStyle, marginBottom: '28px' }}>
+                                Посмотреть все
+                            </button>
+                        </>
+                    )}
+
+                    {/* Мои задачи */}
+                    <h2 style={sectionTitleStyle}>Мои задачи</h2>
+
+                    <div style={listCardStyle}>
+                        {tasks.length === 0 ? (
+                            <p style={{ padding: '16px', color: '#777', margin: 0 }}>Нет текущих задач</p>
+                        ) : (
+                            tasks.slice(0, 3).map((task, idx) => {
+                                const count = Number(appsCount[task.id] || 0);
+
+                                return (
+                                    <div
+                                        key={task.id}
+                                        onClick={() => openMyTask(task.id)}
+                                        style={{
+                                            ...rowStyle,
+                                            borderBottom: idx === Math.min(2, tasks.length - 1) ? 'none' : rowStyle.borderBottom
+                                        }}
+                                    >
+                                        <div style={{ minWidth: 0 }}>
+                                            <div style={titleStyle}>{task.title}</div>
+
+                                            <div style={metaStyle}>
+                                                <div>
+                                                    <span style={labelStyle}>Дата:</span>{' '}
+                                                    {toDateOnly(task.beginDate ?? task.createdAt)}
+                                                </div>
+                                                <div>
+                                                    <span style={labelStyle}>Статус:</span> {task.status}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {count > 0 && <div style={badgeStyle}>{count}</div>}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+
+                    <button onClick={() => nav('/tasks?type=my')} style={subBtnStyle}>
+                        Посмотреть все
+                    </button>
+                </div>
             </div>
         </div>
     );

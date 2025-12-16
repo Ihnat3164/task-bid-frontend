@@ -141,16 +141,18 @@ export async function getAllTasks() {
     return res.json();
 }
 
-export async function applyToTask(id) {
+export async function applyToTask(id, price) {
     const res = await fetch(`${API_BASE_URL}/api/tasks/${id}/apply`, {
         method: 'POST',
-        headers: authHeaders()
+        headers: {
+            ...authHeaders(),
+            'Content-Type': 'text/plain; charset=utf-8'
+        },
+        body: String(price ?? '').trim()
     });
 
-    // 200-299
     if (res.ok) return res;
 
-    // если ты на бэке сделаешь 409 при повторном отклике — будет идеально
     if (res.status === 409) {
         const err = new Error('ALREADY_APPLIED');
         err.code = 'ALREADY_APPLIED';
@@ -163,8 +165,10 @@ export async function applyToTask(id) {
         throw err;
     }
 
-    throw new Error('Failed to apply');
+    const text = await res.text().catch(() => '');
+    throw new Error(text || 'Failed to apply');
 }
+
 
 export async function getMyTasksApplicationsCount() {
     const res = await fetch(`${API_BASE_URL}/api/my/tasks/applications-count`, {
@@ -176,6 +180,69 @@ export async function getMyTasksApplicationsCount() {
 
     return res.json();
 }
+
+export async function approveApplication(taskId, appId) {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/applications/${appId}/approve`, {
+        method: 'POST',
+        headers: authHeaders()
+    });
+
+    if (res.ok) return res;
+
+    if (res.status === 401) throw new Error('Unauthorized');
+    if (res.status === 403) throw new Error('Forbidden');
+    if (res.status === 404) throw new Error('Not found');
+    if (res.status === 409) throw new Error('Conflict');
+
+    throw new Error('Failed to approve');
+}
+
+
+export async function getMyApplications() {
+    const res = await fetch(`${API_BASE_URL}/api/my/applications`, {
+        headers: authHeaders()
+    });
+
+    if (res.status === 401) throw new Error('Unauthorized');
+    if (res.status === 403) throw new Error('Forbidden');
+    if (!res.ok) throw new Error('Failed to fetch my applications');
+
+    return res.json();
+}
+
+export async function startWork(taskId) {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/start-work`, {
+        method: 'POST',
+        headers: authHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to start work');
+    return res;
+}
+
+export async function finishWork(taskId) {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/finish-work`, {
+        method: 'POST',
+        headers: authHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to finish work');
+    return res;
+}
+
+export async function completeTask(taskId) {
+    const res = await fetch(
+        `${API_BASE_URL}/api/tasks/${taskId}/complete`,
+        {
+            method: 'POST',
+            headers: authHeaders()
+        }
+    );
+
+    if (!res.ok) throw new Error('Failed to complete task');
+    return res;
+}
+
+
+
 
 
 
