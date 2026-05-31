@@ -8,8 +8,10 @@ import {
     startWork,
     completeTask,
     finishWork,
+    createTaskReview,
     getRoleFromToken
 } from '../api';
+import { normalizeApplicationStatus, normalizeTaskStatus, taskStatusLabel } from '../utils/status';
 
 export function TaskDetailPage() {
     const { id } = useParams();
@@ -21,7 +23,8 @@ export function TaskDetailPage() {
 
     // если пришли из "моих откликов"
     const fromMyApplications = location.state?.fromMyApplications === true;
-    const myAppStatus = location.state?.myAppStatus; // "ACCEPTED" и т.д.
+    const myAppStatus = normalizeApplicationStatus(location.state?.myAppStatus);
+    const viewSource = location.state?.source ?? 'DIRECT';
 
     const [task, setTask] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -33,6 +36,10 @@ export function TaskDetailPage() {
     const [approveLoadingId, setApproveLoadingId] = useState(null);
     const [workLoading, setWorkLoading] = useState(false);
     const [completeLoading, setCompleteLoading] = useState(false);
+    const [reviewLoading, setReviewLoading] = useState(false);
+    const [reviewRating, setReviewRating] = useState('5');
+    const [reviewComment, setReviewComment] = useState('');
+    const [reviewError, setReviewError] = useState(null);
 
     // ✅ модалка цены
     const [showPriceModal, setShowPriceModal] = useState(false);
@@ -40,8 +47,9 @@ export function TaskDetailPage() {
     const [priceError, setPriceError] = useState(null);
 
     async function reloadTask(taskId) {
-        const t = await getTask(taskId);
+        const t = await getTask(taskId, viewSource);
         setTask(t);
+        setApplied(t?.currentUserApplied === true);
     }
 
     useEffect(() => {
@@ -52,8 +60,11 @@ export function TaskDetailPage() {
             setError(null);
 
             try {
-                const t = await getTask(id);
-                if (!cancelled) setTask(t);
+                const t = await getTask(id, viewSource);
+                if (!cancelled) {
+                    setTask(t);
+                    setApplied(t?.currentUserApplied === true);
+                }
             } catch (err) {
                 if (!cancelled) setError(err.message || 'Ошибка загрузки');
             } finally {
@@ -63,7 +74,7 @@ export function TaskDetailPage() {
 
         load();
         return () => (cancelled = true);
-    }, [id]);
+    }, [id, viewSource]);
 
     function goBack() {
         nav(-1);
@@ -169,7 +180,7 @@ export function TaskDetailPage() {
         try {
             setCompleteLoading(true);
             await completeTask(id);
-            nav('/home'); // DONE -> уводим
+            await reloadTask(id);
         } catch (e) {
             alert(e.message || 'Не удалось завершить задачу');
         } finally {
@@ -177,10 +188,36 @@ export function TaskDetailPage() {
         }
     }
 
+    async function handleSubmitReview() {
+        setReviewError(null);
+        const rating = Number(reviewRating);
+        if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+            setReviewError('Оценка должна быть от 1 до 5');
+            return;
+        }
+
+        try {
+            setReviewLoading(true);
+            await createTaskReview(id, {
+                rating,
+                comment: reviewComment.trim()
+            });
+            setReviewComment('');
+            setReviewRating('5');
+            await reloadTask(id);
+        } catch (e) {
+            setReviewError(e.message || 'Не удалось оставить отзыв');
+        } finally {
+            setReviewLoading(false);
+        }
+    }
+
     const status = useMemo(() => {
         if (!task) return null;
-        return typeof task.status === 'string' ? task.status : task.status?.name;
+        return normalizeTaskStatus(task.status);
     }, [task]);
+
+    const readyForCompletion = task?.readyForCompletion === true;
 
     const applicants = useMemo(() => (Array.isArray(task?.applicants) ? task.applicants : []), [task]);
     const executor = useMemo(() => task?.executor ?? null, [task]);
@@ -193,13 +230,15 @@ export function TaskDetailPage() {
     // автор видит исполнителя когда НЕ OPEN и executor есть
     const showExecutor = canDelete && status !== 'OPEN' && executor;
 
-    // кнопки исполнителя — только если пришли из "моих откликов" и мой отклик ACCEPTED
-    const myAccepted = role === 'EXECUTOR' && fromMyApplications && myAppStatus === 'ACCEPTED';
-    const canStartWorkBtn = myAccepted && status === 'READY_FOR_WORK';
-    const canFinishWorkBtn = myAccepted && status === 'IN_PROGRESS';
+    // кнопки исполнителя — только если пришли из "моих откликов" и мой отклик APPROVED
+    const myAccepted = role === 'EXECUTOR' && fromMyApplications && myAppStatus === 'APPROVED';
+    const canStartWorkBtn = myAccepted && status === 'ASSIGNED';
+    const canFinishWorkBtn = myAccepted && status === 'IN_PROGRESS' && !readyForCompletion;
 
-    // ✅ кнопка заказчика: READY_FOR_ACCEPTANCE -> DONE
-    const canCompleteTaskBtn = canDelete && status === 'READY_FOR_ACCEPTANCE';
+    const canCompleteTaskBtn = canDelete && status === 'IN_PROGRESS' && readyForCompletion;
+    const reviewAllowed = task?.reviewAllowed === true;
+    const reviewExists = task?.reviewExists === true;
+    const taskReview = task?.review ?? null;
 
     return (
         <div
@@ -245,7 +284,7 @@ export function TaskDetailPage() {
 
                                 <div>
                                     <b>Статус</b>
-                                    <p style={{ margin: '6px 0 0' }}>{status}</p>
+                                    <p style={{ margin: '6px 0 0' }}>{taskStatusLabel(status)}</p>
                                 </div>
 
                                 <div>
@@ -355,7 +394,7 @@ export function TaskDetailPage() {
                                     </button>
                                 )}
 
-                                {/* ✅ КНОПКА ЗАКАЗЧИКА: READY_FOR_ACCEPTANCE -> DONE */}
+                                {/* Кнопка заказчика: исполнитель закончил работу, нужна приёмка */}
                                 {canCompleteTaskBtn && (
                                     <button
                                         onClick={handleCompleteTask}
@@ -522,6 +561,12 @@ export function TaskDetailPage() {
                                         {executor.city ? executor.city : '—'}
                                         {typeof executor.experience === 'number' ? ` • опыт: ${executor.experience}` : ''}
                                     </div>
+
+                                    <div style={{ color: '#444', marginTop: '6px', fontWeight: 700 }}>
+                                        {executor.reviewsCount > 0
+                                            ? `Рейтинг: ${Number(executor.averageRating).toFixed(2)} / 5 (${executor.reviewsCount} отзывов)`
+                                            : 'Рейтинг: пока нет отзывов'}
+                                    </div>
                                 </div>
 
                                 <div style={{ textAlign: 'right' }}>
@@ -535,7 +580,7 @@ export function TaskDetailPage() {
                                             fontWeight: 800
                                         }}
                                     >
-                                        {status}
+                                        {taskStatusLabel(status)}
                                     </div>
                                 </div>
                             </div>
@@ -561,6 +606,97 @@ export function TaskDetailPage() {
                                             {s.name ?? s.title ?? String(s)}
                                         </span>
                                     ))}
+                                </div>
+                            )}
+
+                            {status === 'COMPLETED' && (
+                                <div
+                                    style={{
+                                        marginTop: '16px',
+                                        paddingTop: '16px',
+                                        borderTop: '1px solid #eee'
+                                    }}
+                                >
+                                    <h4 style={{ margin: '0 0 10px' }}>Отзыв о работе</h4>
+
+                                    {reviewExists && taskReview ? (
+                                        <div style={{ color: '#333' }}>
+                                            <div style={{ fontWeight: 800 }}>Оценка: {taskReview.rating} / 5</div>
+                                            <div style={{ marginTop: '6px', color: '#555' }}>
+                                                {taskReview.comment || 'Комментарий не указан'}
+                                            </div>
+                                            <div style={{ marginTop: '6px', color: '#2e7d32', fontWeight: 700 }}>
+                                                Отзыв оставлен
+                                            </div>
+                                        </div>
+                                    ) : reviewAllowed ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <label style={{ fontWeight: 700 }}>
+                                                Оценка
+                                                <select
+                                                    value={reviewRating}
+                                                    onChange={(e) => setReviewRating(e.target.value)}
+                                                    disabled={reviewLoading}
+                                                    style={{
+                                                        display: 'block',
+                                                        marginTop: '6px',
+                                                        width: '120px',
+                                                        padding: '10px',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid #ddd'
+                                                    }}
+                                                >
+                                                    {[5, 4, 3, 2, 1].map((value) => (
+                                                        <option key={value} value={value}>
+                                                            {value}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </label>
+
+                                            <label style={{ fontWeight: 700 }}>
+                                                Комментарий
+                                                <textarea
+                                                    value={reviewComment}
+                                                    onChange={(e) => setReviewComment(e.target.value)}
+                                                    disabled={reviewLoading}
+                                                    placeholder="Например: хороший исполнитель, всё сделано вовремя"
+                                                    rows={3}
+                                                    style={{
+                                                        display: 'block',
+                                                        marginTop: '6px',
+                                                        width: '100%',
+                                                        padding: '10px',
+                                                        borderRadius: '8px',
+                                                        border: '1px solid #ddd',
+                                                        resize: 'vertical'
+                                                    }}
+                                                />
+                                            </label>
+
+                                            {reviewError && <div style={{ color: '#d33' }}>{reviewError}</div>}
+
+                                            <button
+                                                onClick={handleSubmitReview}
+                                                disabled={reviewLoading}
+                                                style={{
+                                                    alignSelf: 'flex-start',
+                                                    padding: '10px 14px',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid #2e7d32',
+                                                    background: '#2e7d32',
+                                                    color: 'white',
+                                                    fontWeight: 800,
+                                                    cursor: 'pointer',
+                                                    opacity: reviewLoading ? 0.7 : 1
+                                                }}
+                                            >
+                                                {reviewLoading ? 'Сохраняем...' : 'Оставить отзыв'}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div style={{ color: '#777' }}>Отзыв пока недоступен</div>
+                                    )}
                                 </div>
                             )}
                         </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { getMyApplications, getRoleFromToken } from '../api';
+import { applicationStatusLabel, normalizeApplicationStatus } from '../utils/status';
 
 export default function MyApplicationsPage() {
     const nav = useNavigate();
@@ -9,10 +10,6 @@ export default function MyApplicationsPage() {
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState(null);
-
-    if (role !== 'EXECUTOR') {
-        return <Navigate to="/home" replace />;
-    }
 
     useEffect(() => {
         let cancelled = false;
@@ -33,6 +30,10 @@ export default function MyApplicationsPage() {
         return () => { cancelled = true; };
     }, []);
 
+    if (role !== 'EXECUTOR') {
+        return <Navigate to="/home" replace />;
+    }
+
     function logout() {
         localStorage.removeItem('taskbid_token');
         nav('/auth');
@@ -47,7 +48,7 @@ export default function MyApplicationsPage() {
             state: {
                 canDelete: false,
                 fromMyApplications: true,
-                myAppStatus: x.status,                 // "ACCEPTED" / "PENDING" / "REJECTED"
+                myAppStatus: normalizeApplicationStatus(x.status),
                 myApplicationId: x.applicationId ?? null
             }
         });
@@ -153,7 +154,7 @@ export default function MyApplicationsPage() {
                                 fontWeight: 800,
                                 whiteSpace: 'nowrap'
                             }}>
-                                {x.status}
+                                {applicationStatusLabel(x.status)}
                             </div>
                         </div>
                     ))}

@@ -8,6 +8,7 @@ import {
     getMyTasksApplicationsCount
 } from '../api';
 import { toDateOnly } from '../utils/date';
+import { taskStatusLabel } from '../utils/status';
 
 export default function TasksListPage() {
     const nav = useNavigate();
@@ -21,10 +22,6 @@ export default function TasksListPage() {
     const isRecommended = type === 'recommended';
     const isAll = type === 'all';
     const isMy = !isRecommended && !isAll;
-
-    if ((isRecommended || isAll) && role !== 'EXECUTOR') {
-        return <Navigate to="/home" replace />;
-    }
 
     useEffect(() => {
         let cancelled = false;
@@ -69,13 +66,18 @@ export default function TasksListPage() {
         };
     }, [isRecommended, isAll, isMy]);
 
+    if ((isRecommended || isAll) && role !== 'EXECUTOR') {
+        return <Navigate to="/home" replace />;
+    }
+
     function logout() {
         localStorage.removeItem('taskbid_token');
         nav('/auth');
     }
 
     function openTask(id) {
-        nav(`/tasks/${id}`, { state: { canDelete: isMy } });
+        const source = isRecommended ? 'RECOMMENDATION' : isAll ? 'LIST' : 'DIRECT';
+        nav(`/tasks/${id}`, { state: { canDelete: isMy, source } });
     }
 
     const title = isAll ? 'Все задачи' : isRecommended ? 'Рекомендованные задачи' : 'Мои задачи';
@@ -253,7 +255,7 @@ export default function TasksListPage() {
                                                     <span style={labelStyle}>Дата:</span> {date}
                                                 </div>
                                                 <div>
-                                                    <span style={labelStyle}>Статус:</span> {task.status}
+                                                    <span style={labelStyle}>Статус:</span> {taskStatusLabel(task.status)}
                                                 </div>
                                             </div>
                                         </div>

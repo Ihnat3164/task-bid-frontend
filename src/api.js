@@ -44,7 +44,6 @@ export async function getSkillCategories() {
 
 export async function submitOnboarding(payload) {
     const headers = { 'Content-Type': 'application/json', ...authHeaders() };
-    console.log('Onboarding headers:', headers); // <- проверяем
     const res = await fetch(`${API_BASE_URL}/api/profiles/onboarding`, {
         method: 'POST',
         headers,
@@ -80,8 +79,11 @@ export async function getMyTasks() {
     return res.json();
 }
 
-export async function getTask(id) {
-    const res = await fetch(`${API_BASE_URL}/api/task?id=${id}`, {
+export async function getTask(id, source) {
+    const params = new URLSearchParams({ id: String(id) });
+    if (source) params.set('source', source);
+
+    const res = await fetch(`${API_BASE_URL}/api/task?${params.toString()}`, {
         headers: authHeaders()
     });
 
@@ -105,7 +107,7 @@ export function getRoleFromToken() {
         );
         const data = JSON.parse(json);
         return data.role ?? null; // "EXECUTOR" / "CUSTOMER"
-    } catch (e) {
+    } catch {
         return null;
     }
 }
@@ -241,9 +243,26 @@ export async function completeTask(taskId) {
     return res;
 }
 
+export async function createTaskReview(taskId, payload) {
+    const res = await fetch(`${API_BASE_URL}/api/tasks/${taskId}/review`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            ...authHeaders()
+        },
+        body: JSON.stringify(payload)
+    });
 
+    if (res.ok) return res.json();
 
+    const errorBody = await res.json().catch(() => null);
+    if (errorBody?.message) {
+        throw new Error(errorBody.message);
+    }
 
+    const text = await res.text().catch(() => '');
+    throw new Error(text || 'Failed to create review');
+}
 
 
 

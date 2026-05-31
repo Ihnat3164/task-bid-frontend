@@ -7,6 +7,7 @@ import {
     getMyTasksApplicationsCount
 } from '../api';
 import { toDateOnly } from '../utils/date';
+import { taskStatusLabel } from '../utils/status';
 
 export default function HomePage() {
     const nav = useNavigate();
@@ -25,7 +26,7 @@ export default function HomePage() {
     }
 
     function openOtherTask(id) {
-        nav(`/tasks/${id}`, { state: { canDelete: false } });
+        nav(`/tasks/${id}`, { state: { canDelete: false, source: 'RECOMMENDATION' } });
     }
 
     useEffect(() => {
@@ -258,7 +259,7 @@ export default function HomePage() {
                                                         {toDateOnly(task.beginDate ?? task.createdAt)}
                                                     </div>
                                                     <div>
-                                                        <span style={labelStyle}>Статус:</span> {task.status}
+                                                        <span style={labelStyle}>Статус:</span> {taskStatusLabel(task.status)}
                                                     </div>
                                                 </div>
                                             </div>
@@ -301,7 +302,7 @@ export default function HomePage() {
                                                     {toDateOnly(task.beginDate ?? task.createdAt)}
                                                 </div>
                                                 <div>
-                                                    <span style={labelStyle}>Статус:</span> {task.status}
+                                                    <span style={labelStyle}>Статус:</span> {taskStatusLabel(task.status)}
                                                 </div>
                                             </div>
                                         </div>
